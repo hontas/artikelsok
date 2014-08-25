@@ -2,41 +2,39 @@
 <html>
 <head>
 	<title>svd</title>
+	<meta charset="utf-8">
+	<link rel="stylesheet" href="bower_components/font-awesome/css/font-awesome.min.css">
 	<link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
 
 
 <header>
-	<h1>SvD search form</h1>
+	<h1>SvD sökformulär</h1>
 </header>
 
 <section class="main" role="main">
-	<aside>
+	<aside class="aside-left">
 		<form id="search-form">
-			<input type="search" id="search-field"/>
-			<button type="submit">Sök</button>
+			<input type="search" id="search-field" placeholder="Sök"/>
+			<button type="submit">
+				<span id="search-button" class="fa fa-search"></span>
+			</button>
 		</form>
+
+		<hr/>
+
+		<button type="button" id="sorting-button">Sorteringsknappen</button>
 	</aside>
 
 	<div class="search-results">
-		<table>
-			<caption>Sökresultat</caption>
-			<thead>
-				<tr>
-					<th>header</th>
-				</tr>
-			</thead>
-			<tbody>
-				<tr>
-					<td>data</td>
-				</tr>
-			</tbody>
-		</table>
+		<div>
+			Sökresultat <span id="search-hits" class="text-muted"></span>
+		</div>
+		<ul id="result-list" class="list-unstyled"></ul>
 	</div>
 </section>
 
-
-<script type="text/javascript" src="assets/js/svd.js"></script>
+<script src="assets/js/svd.js"></script>
 </body>
 </html>
