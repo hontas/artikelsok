@@ -1,142 +1,130 @@
-(function(){
+(function() {
 
-	var loadJSONP = (function() {
-		var unique = 0;
-		return function(url, callback, context) {
-			// init
-			var name = "_svd_jsonp_" + unique++;
-			url += "&callback=" + name;
+	var SvD = window.SvD || {};
 
-			// create script
-			var script = document.createElement('script');
-			script.type = "text/javascript";
-			script.src = url;
+	SvD.grouped = false,
+	SvD.searchUrl = "http://www.svd.se/search.do?q={{query}}&output=json",
+	SvD.searchResults = [],
 
-			// setup handler
-			window[name] = function(data) {
-				callback.call(context || window, data);
-				document.querySelector('head').removeChild(script);
-				script = null;
-				delete window[name];
-			}
+	SvD.init = function() {
+		this.searchField = document.getElementById('search-field');
+		this.searchFieldIcon = document.querySelector('.form-feedback');
+		this.sortButton = document.getElementById('sorting-button');
+		this.resultsList = document.getElementById('result-list');
+		this.searchHits = document.getElementById('search-hits');
 
-			// load json
-			document.querySelector('head').appendChild(script);
-		}
-	})();
+		this.addEventListeners();
+	};
 
-	var SvD = {
+	SvD.addEventListeners = function() {
+		this.searchField.addEventListener('keydown', this.onSearchKeyDown.bind(this), false);
+		this.sortButton.addEventListener("click", this.toggleGrouped.bind(this), false);
+	};
 
-		grouped: false,
-		searchUrl: "http://www.svd.se/search.do?q=[question]&output=json",
-		searchResults: [],
-
-		init: function() {
-			this.searchForm = document.getElementById('search-form');
-			this.searchField = document.getElementById('search-field');
-			this.searchButtonIcon = document.getElementById('search-button');
-			this.sortButton = document.getElementById('sorting-button');
-			this.resultsList = document.getElementById('result-list');
-			this.searchHits = document.getElementById('search-hits');
-
-			this.addEventListeners();
-		},
-
-		getArticles: function() {
-			var url = this.searchUrl.replace('[question]', encodeURIComponent(this.searchField.value));
-
-			this.searchButtonIcon.className = "fa fa-spinner fa-spin";
-
-			function success(data) {
-				var results = data.SvDSearch.results && this.transform(data.SvDSearch.results.articles) || [];
-				this.searchResults = results;
-				this.searchHits.textContent = data.SvDSearch.query.count + 'st.';
-				
-				this.searchButtonIcon.className = "fa fa-search";
-				this.render();
-			}
-
-			loadJSONP(url, success, this);
-		},
-
-		addEventListeners: function() {
-			this.searchForm.addEventListener('submit', this.onFormSubmit.bind(this), false);
-			this.sortButton.addEventListener("click", this.toggleGrouped.bind(this), false);
-		},
-
-		onFormSubmit: function(event) {
-			event.preventDefault();
+	SvD.onSearchKeyDown = function(evt) {
+		if (evt.keyCode === 13) {
 			this.getArticles();
-		},
+		};
+	};
 
-		transform: function(array) {
-			return array.map(function(item) {
-				item.timestamp = new Date(item.date).getTime();
-				return item;
-			});
-		},
+	SvD.getArticles = function() {
+		var searchQuery = this.searchField.value;
+		var url = this.searchUrl.replace('{{query}}', encodeURIComponent(searchQuery));
 
-		getResults: function() {
-			function byTimestamp(a, b) {
-				return a.timestamp < b.timestamp;
-			}
+		this.searchFieldIcon.classList.remove("fa-search");
+		this.searchFieldIcon.classList.add("fa-spin");
+		this.searchFieldIcon.classList.add("fa-spinner");
 
-			function bySection(obj, curr) {
-				var section = curr.section.split(' ')[0];
+		function success(data) {
+			var query = data.SvDSearch.query;
 
-				if (!obj[section]) {
-					obj[section] = [];
-				}
-				
-				obj[section].push(curr);
-				return obj;
-			}
+			this.searchResults = data.SvDSearch.results && data.SvDSearch.results.articles || [];
+			this.searchHits.innerHTML = '<em>' + searchQuery + '</em> (' + query.count + 'st)';
+			
+			this.searchField.value = "";
+			this.searchFieldIcon.classList.remove("fa-spin");
+			this.searchFieldIcon.classList.remove("fa-spinner");
+			this.searchFieldIcon.classList.add("fa-search");
 
-			var results = this.searchResults.slice().sort(byTimestamp);
-
-			if (this.grouped) {
-				return results.reduce(bySection, {});
-			} else {
-				return { "result": results };
-			}
-		},
-
-		toggleGrouped: function() {
-			this.grouped = !this.grouped;
 			this.render();
-		},
+		}
 
-		render: function() {
-			var results = this.getResults();
-			var frag = document.createDocumentFragment();
-			var cell = document.createElement('li');
-			var link = document.createElement('a');
+		loadJSONP(url, success, this);
+	};
 
-			// clear last result list
-			while (this.resultsList.firstChild) {
-				this.resultsList.removeChild(this.resultsList.firstChild);
+	SvD.getSearchResults = function() {
+		var results = this.searchResults.slice();
+
+		function byTitle(a, b) {
+			if (a.title < b.title) {
+				return -1;
+			} else if (a.title > b.title) {
+				return 1;
 			}
+			return 0;
+		}
 
-			function appendResult(result) {
-				var li = cell.cloneNode();
-				var a = link.cloneNode();
-				a.href = result.url;
-				a.textContent = result.title;
-				li.appendChild(a);
-				frag.appendChild(li);
+		function byTimestamp(a, b) {
+			return new Date(a.date).getTime() - new Date(b.date).getTime();
+		}
+
+		function toSection(obj, curr) {
+			var section = curr.section.split(' ')[0];
+
+			if (!obj[section]) {
+				obj[section] = [];
 			}
+			
+			obj[section].push(curr);
+			return obj;
+		}
 
-			for (var section in results) {
-				if (this.grouped) {
-					var heading = cell.cloneNode();
-					heading.textContent = section;
-					heading.classList.add('section-heading');
-					frag.appendChild(heading);
-				}
-				results[section].forEach(appendResult);
+		if (this.grouped) {
+			return results.sort(byTitle).reduce(toSection, {});
+		} else {
+			return { "result": results.sort(byTimestamp).reverse() };
+		}
+	};
+
+	SvD.toggleGrouped = function() {
+		this.grouped = !this.grouped;
+		this.render();
+	};
+
+	SvD.render = function() {
+		var results = this.getSearchResults();
+		var frag = document.createDocumentFragment();
+		var cell = document.createElement('li');
+		var link = document.createElement('a');
+
+		this.clearSearchResultsList();
+
+		function appendResult(result) {
+			var li = cell.cloneNode();
+			var a = link.cloneNode();
+			a.href = result.url;
+			a.textContent = result.title;
+			a.title = result.friendlyDateShort;
+			li.appendChild(a);
+			frag.appendChild(li);
+		}
+
+		for (var section in results) {
+			if (this.grouped) {
+				var heading = cell.cloneNode();
+				heading.textContent = section;
+				heading.classList.add('section-heading');
+				frag.appendChild(heading);
 			}
+			results[section].forEach(appendResult);
+		}
 
-			this.resultsList.appendChild(frag);
+		this.resultsList.appendChild(frag);
+	};
+
+	SvD.clearSearchResultsList = function() {
+		while (this.resultsList.firstChild) {
+			this.resultsList.removeChild(this.resultsList.firstChild);
 		}
 	};
 
