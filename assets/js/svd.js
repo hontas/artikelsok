@@ -1,4 +1,7 @@
 (function() {
+	var keys = {
+		ESC: 13
+	};
 
 	var SvD = window.SvD || {};
 
@@ -22,7 +25,7 @@
 	};
 
 	SvD.onSearchKeyDown = function(evt) {
-		if (evt.keyCode === 13) {
+		if (evt.keyCode === keys.ESC) {
 			this.getArticles();
 		};
 	};
